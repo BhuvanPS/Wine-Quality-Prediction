@@ -1,0 +1,9 @@
+RMSE 0
+Av. abs error 0
+Pearson correlation NA
+Spearman correlation NA
+i w_i 
+1 1
+2 0
+3 0
+4 0
