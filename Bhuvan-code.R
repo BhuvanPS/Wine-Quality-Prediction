@@ -18,32 +18,37 @@ set.seed(ID) # using your student ID number for reproducible sampling with the s
 
 data.subset <- data.raw[sample(1:1599, 460), c(1:6)]
 
-data.variable.names <- c("citric acid", "chlorides", "total sulfur dioxide", "pH", "alcohol")
+data.variable.names <- c("citric acid", "chlorides", "total sulfur dioxide", "pH", "alcohol","quality")
+colnames(data.subset)<-data.variable.names
 
 library(graphics) # Base R graphics
 
 
 
+library(ggplot2)
 
+# First, let's explore the distributions of our variables
+par(mfrow=c(2,3))
 # Create 5 scatterplots function (for each X variable against the variable of interest Y) 
 
 for(i in 1:5){
-  plot(data.raw[,i],data.raw[,6],xlab = data.variable.names[i],ylab = "Quality",main=paste(data.variable.names[i],"vs Quality"))
+  plot(data.subset[,i],data.subset[,6],xlab = data.variable.names[i],ylab = "Quality",main=paste(data.variable.names[i],"vs Quality"))
 }
 # Create 6 histograms for each X variable and Y
-
-for(i in 1:5){
-  hist(data.raw[,i],xlab = data.variable.names[i],main = paste("Histogram of ",data.variable.names[i]))
+par(mfrow=c(1,1))
+for(i in 1:6){
+  hist(data.subset[,i],xlab = data.variable.names[i],main = paste("Histogram of ",data.variable.names[i]))
 }
-hist(data.raw[,6],xlab = data.variable.names[i],main = paste("Histogram of Quality"))
+
 
 ################################
 #Question 2 - Transform the Data
 ################################
 
 
-I <- c("V2","V3","V4","V5","V6") # Choose any four X variables and Y
-
+I <- c("citric acid","chlorides","total sulfur dioxide","alcohol","quality") # Choose any four X variables and Y
+ncol(data.subset)
+length(I)
 variables_for_transform <- data.subset[,I]  # obtain a 460 by 5 matrix
 
 # for each variable, you need to figure out a good data transformation method, 
@@ -64,11 +69,11 @@ analyze_normality <- function(x, var_name) {
   return(c(mean_val, median_val, mode_val, skewness_val))
 }
 normality_results_before <- data.frame(
-  chlorides = analyze_normality(variables_for_transform[, 1], "chlorides"),
-  `total sulfur dioxide` = analyze_normality(variables_for_transform[, 2], "total sulfur dioxide"),
-  pH = analyze_normality(variables_for_transform[, 3], "pH"),
-  alcohol = analyze_normality(variables_for_transform[, 4], "alcohol"),
-  quality = analyze_normality(variables_for_transform[, 5], "quality")
+  analyze_normality(variables_for_transform[, 1], "citric acid"),
+    analyze_normality(variables_for_transform[, 2], "chlorides"),
+    analyze_normality(variables_for_transform[, 3], "total sulfur dioxide"),
+    analyze_normality(variables_for_transform[, 4], "alcohol"),
+    analyze_normality(variables_for_transform[, 5], "quality")
 )
 rownames(normality_results_before) <- c("Mean", "Median", "Mode", "Skewness")
 print("Normality Analysis of Original Data:")
@@ -77,17 +82,17 @@ print(normality_results_before)
 data.transformed <- matrix(0, nrow = nrow(variables_for_transform), ncol = 5)
 
 #chlorides(X2)
-data.transformed[, 1] <- log1p(log1p(variables_for_transform[, 3]^0.001))
+data.transformed[, 2] <- log1p(log1p(variables_for_transform[, 2]^0.001))
 
 # total sulfur dioxide (X3) - Box-Cox transformation
 
-data.transformed[, 2] <- log1p(variables_for_transform[, 2]^0.01)
+data.transformed[, 3] <- log1p(variables_for_transform[, 3])
 
 # pH (X4) - No transformation
-data.transformed[, 3] <- variables_for_transform[, 3]^0.05
+data.transformed[, 1] <- variables_for_transform[, 1]
 
 # alcohol (X5) - log1p transformation
-data.transformed[, 4] <- log1p(log1p(variables_for_transform[, 4]^0.001))^0.1
+data.transformed[, 4] <- log1p(log1p(variables_for_transform[, 4]))
 
 # quality (Y) - No transformation (ordinal)
 data.transformed[, 5] <- variables_for_transform[, 5]
@@ -104,11 +109,11 @@ print(data.transformed)
 
 # Normality analysis after scaling
 normality_results_after_scaling <- data.frame(
-  CitricAcid = analyze_normality(data.transformed[, 1], "CitricAcid"),
-  `total sulfur dioxide` = analyze_normality(data.transformed[, 2], "total sulfur dioxide"),
-  pH = analyze_normality(data.transformed[, 3], "pH"),
-  alcohol = analyze_normality(data.transformed[, 4], "alcohol"),
-  quality = analyze_normality(data.transformed[, 5], "quality")
+  analyze_normality(variables_for_transform[, 1], "citric acid"),
+    analyze_normality(variables_for_transform[, 2], "chlorides"),
+    analyze_normality(variables_for_transform[, 3], "total sulfur dioxide"),
+    analyze_normality(variables_for_transform[, 4], "alcohol"),
+    analyze_normality(variables_for_transform[, 5], "quality")
 )
 rownames(normality_results_after_scaling) <- c("Mean", "Median", "Mode", "Skewness")
 print("Normality Analysis of Scaled Transformed Data:")
@@ -139,9 +144,10 @@ result.wpm05 <- fit.QAM(cbind(data.transformed_copy[,1:4],data.transformed_copy[
 result.wpm2 <- fit.QAM(cbind(data.transformed_copy[,1:4], data.transformed_copy[,5]),g=QM ,stats.1 = "wpm2_stats.txt")
 
 # Get weights for Ordered Weighted Average with fit.OWA()
-OWA_weights <- fit.OWA(cbind(data.transformed_copy[,1:4], data.transformed_copy[,5]),stats.1 = "owa")
+OWA_weights <- fit.OWA(cbind(data.transformed_copy[,1:4], data.transformed_copy[,5]),stats.1 = "owa_stats.txt")
 print(OWA_weights)
-
+#choquet
+choquet<-fit.choquet(cbind(data.transformed_copy[,1:4], data.transformed_copy[,5]),stats.1 = "choquet.txt")
 
 
 #######################################
@@ -152,7 +158,7 @@ new_input <- c(0.8, 0.63, 37, 2.51, 7.0)
 
 new_input_for_transform <- new_input[c("index")] # choose the same four X variables as in Q2 
 
-new_X1 <- 0.63
+new_X1 <- 0.
 new_X2 <- 37
 new_X4 <- 2.51
 new_X5 <- 7
