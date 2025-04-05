@@ -16,11 +16,14 @@ data.raw <- as.matrix(read.table("RedWine.txt"))
 ID<-224113776
 set.seed(ID) # using your student ID number for reproducible sampling with the seed function
 
+
 data.subset <- data.raw[sample(1:1599, 460), c(1:6)]
 
 data.variable.names <- c("citric acid", "chlorides", "total sulfur dioxide", "pH", "alcohol","quality")
 colnames(data.subset)<-data.variable.names
-
+min(data.subset[,5])
+min(data.subset[,6])
+max(data.subset[,6])
 library(graphics) # Base R graphics
 
 
@@ -46,7 +49,7 @@ for(i in 1:6){
 ################################
 
 
-I <- c("citric acid","chlorides","total sulfur dioxide","alcohol","quality") # Choose any four X variables and Y
+I<-c("citric acid", "chlorides", "total sulfur dioxide", "alcohol","quality") # Choose any four X variables and Y
 ncol(data.subset)
 length(I)
 variables_for_transform <- data.subset[,I]  # obtain a 460 by 5 matrix
@@ -55,6 +58,7 @@ variables_for_transform <- data.subset[,I]  # obtain a 460 by 5 matrix
 # such as Polynomial, log and negation transformation. The k-S test and Skewness 
 # calculation may be helpful to select the transformation method
 library(moments)
+
 analyze_normality <- function(x, var_name) {
   mean_val <- mean(x)
   median_val <- median(x)
@@ -69,58 +73,59 @@ analyze_normality <- function(x, var_name) {
   return(c(mean_val, median_val, mode_val, skewness_val))
 }
 normality_results_before <- data.frame(
-  analyze_normality(variables_for_transform[, 1], "citric acid"),
-    analyze_normality(variables_for_transform[, 2], "chlorides"),
-    analyze_normality(variables_for_transform[, 3], "total sulfur dioxide"),
-    analyze_normality(variables_for_transform[, 4], "alcohol"),
-    analyze_normality(variables_for_transform[, 5], "quality")
+  "citric acid" = analyze_normality(variables_for_transform[, 1], "citric acid"),
+    "chlorides" = analyze_normality(variables_for_transform[, 2], "chlorides"),
+    "total sulfur dioxide" = analyze_normality(variables_for_transform[, 3], "total sulfur dioxide"),
+    "alcohol" = analyze_normality(variables_for_transform[, 4], "alcohol"),
+    "quality" = analyze_normality(variables_for_transform[, 5], "quality")
 )
 rownames(normality_results_before) <- c("Mean", "Median", "Mode", "Skewness")
-print("Normality Analysis of Original Data:")
 print(normality_results_before)
 
-data.transformed <- matrix(0, nrow = nrow(variables_for_transform), ncol = 5)
-
-#chlorides(X2)
-data.transformed[, 2] <- log1p(log1p(variables_for_transform[, 2]^0.001))
-
-# total sulfur dioxide (X3) - Box-Cox transformation
-
-data.transformed[, 3] <- log1p(variables_for_transform[, 3])
-
-# pH (X4) - No transformation
-data.transformed[, 1] <- variables_for_transform[, 1]
-
-# alcohol (X5) - log1p transformation
-data.transformed[, 4] <- log1p(log1p(variables_for_transform[, 4]))
-
-# quality (Y) - No transformation (ordinal)
-data.transformed[, 5] <- variables_for_transform[, 5]
-
-# Min-Max Scaling (applied before z-score) - EXCLUDING quality
 minmax <- function(x) {
-  (x - min(x)) / (max(x) - min(x))
-}
-data.transformed[, 1:5] <- apply(data.transformed[, 1:5], 2, minmax) # Apply minmax to columns 1-4
+    (x - min(x)) / (max(x) - min(x))
+  }
+transform <- function(data) {
+  transformed_data <- matrix(0, nrow = nrow(data), ncol = 5)
 
-# Print the scaled data
-print("Scaled Transformed Data:")
-print(data.transformed)
+  # chlorides(X2)
+  transformed_data[, 2] <- log1p(log1p(data[, 2]^0.001))
+
+  # total sulfur dioxide (X3) - log1p transformation
+  transformed_data[, 3] <- log1p(data[, 3])
+
+  # citric acid (X1)
+  transformed_data[, 1] <- data[, 1]^0.6
+print(data[8,4])
+  # alcohol (X4) - log1p transformation
+  transformed_data[, 4] <- log1p(log1p(data[, 4]))
+
+  # quality (Y) - No transformation (ordinal)
+  transformed_data[, 5] <- data[, 5]
+write.table(transformed_data, "unscaled-transformed.txt")
+  # Min-Max Scaling
+  
+
+  return(transformed_data)
+}
+
+data.transformed <- transform(variables_for_transform)
+  data.transformed[, 1:5] <- apply(data.transformed[, 1:5], 2, minmax)
+
 
 # Normality analysis after scaling
 normality_results_after_scaling <- data.frame(
-  analyze_normality(variables_for_transform[, 1], "citric acid"),
-    analyze_normality(variables_for_transform[, 2], "chlorides"),
-    analyze_normality(variables_for_transform[, 3], "total sulfur dioxide"),
-    analyze_normality(variables_for_transform[, 4], "alcohol"),
-    analyze_normality(variables_for_transform[, 5], "quality")
+  "citric acid" = analyze_normality(data.transformed[, 1], "citric acid"),
+    "chlorides" = analyze_normality(data.transformed[, 2], "chlorides"),
+    "total sulfur dioxide" = analyze_normality(data.transformed[, 3], "total sulfur dioxide"),
+    "alcohol" = analyze_normality(data.transformed[, 4], "alcohol"),
+    "quality" = analyze_normality(data.transformed[, 5], "quality")
 )
 rownames(normality_results_after_scaling) <- c("Mean", "Median", "Mode", "Skewness")
 print("Normality Analysis of Scaled Transformed Data:")
 print(normality_results_after_scaling)
 
-# Save the scaled transformed data to a text file
-write.table(data.transformed, "scaled-transformed.txt")
+
 
 # Save this transformed data to a text file
 write.table(data.transformed, "name-transformed.txt")  # replace ??name?? with either your surname or first name.
@@ -150,35 +155,81 @@ print(OWA_weights)
 choquet<-fit.choquet(cbind(data.transformed_copy[,1:4], data.transformed_copy[,5]),stats.1 = "choquet.txt")
 
 
+# Read the output file
+# Function to extract stats from the output file
+extract_stats <- function(file_path, weights_start_index, weights_end_index) {
+  output_data <- readLines(file_path)
+
+  rmse <- as.numeric(gsub("RMSE ", "", output_data[1]))
+  avg_abs_error <- as.numeric(gsub("Av. abs error ", "", output_data[2]))
+  pearson_corr <- as.numeric(gsub("Pearson correlation ", "", output_data[3]))
+  spearman_corr <- as.numeric(gsub("Spearman correlation ", "", output_data[4]))
+
+  weights_lines <- output_data[weights_start_index:weights_end_index]
+  weights <- sapply(weights_lines, function(line) {
+    as.numeric(strsplit(line, " ")[[1]][2])
+  })
+
+  weights_df <- data.frame(
+    i = 1:length(weights),
+    w_i = weights
+  )
+rownames(weights_df) <- c("citric acid","chlorides","total sulfur dioxide","alcohol")
+
+  print(paste("RMSE:", rmse))
+  print(paste("Av. abs error:", avg_abs_error))
+  print(paste("Pearson correlation:", pearson_corr))
+  print(paste("Spearman correlation:", spearman_corr))
+  print(weights_df)
+}
+
+# Call the function for wam_stats.txt, with weights starting from line 6 and ending at line 9.
+extract_stats("wam_stats.txt", 6, 9)
+extract_stats("wpm05_stats.txt", 6, 9)
+extract_stats("wpm2_stats.txt", 6, 9)
 #######################################
 #Question 4 - Use Model for Prediction
 #######################################
 
 new_input <- c(0.8, 0.63, 37, 2.51, 7.0) 
 
-new_input_for_transform <- new_input[c("index")] # choose the same four X variables as in Q2 
+load_wam_weights <- function(file_path) {
+  output_data <- readLines(file_path)
+  weights_lines <- output_data[6:9]  # Assuming weights start from line 6 to 9
+  weights <- sapply(weights_lines, function(line) {
+    as.numeric(strsplit(line, " ")[[1]][2])
+  })
+  return(weights)
+}
 
-new_X1 <- 0.
-new_X2 <- 37
-new_X4 <- 2.51
-new_X5 <- 7
-
-new_input <- data.frame(X1 = new_X1, X2 = new_X2, X4 = new_X4, X5 = new_X5)
-
-# Apply the same transformations and scaling
-transformed_new_input <- data.frame(
-  X1 = log1p(log1p(new_input$X1^0.001)),
-  X2 = log1p(new_input$X2^0.01),
-  X4 = new_input$X4^0.05,
-  X5 = log1p(log1p(new_input$X5^0.001))^0.1
+transformed_new_input_no_scale <- data.frame(
+  X1 = as.numeric(new_input[1])^0.6,
+  X2 = log1p(log1p(as.numeric(new_input[2])^0.001)),
+  X3 = log1p(as.numeric(new_input[3])),
+  X4 = log1p(log1p(as.numeric(new_input[5])))
 )
+print(transformed_new_input_no_scale)
+transformed_train_data <- read.table("unscaled-transformed.txt")
+train_min <- apply(transformed_train_data[, 1:4], 2, min)
+train_max <- apply(transformed_train_data[, 1:4], 2, max)
+print(train_min)
+print(train_max)
+# Scale the new input using the training data's min and max.
+scaled_new_input <- (transformed_new_input_no_scale - train_min) / (train_max - train_min)
+print(scaled_new_input)
+# Load the weights
+wam_weights <- load_wam_weights("wam_stats.txt")
 
+# Calculate the predicted quality using the Weighted Arithmetic Mean
+predicted_quality <- sum(as.numeric(scaled_new_input[1, 1:4]) * wam_weights)
+print(predicted_quality) 
+print(predicted_quality*5 +3)
 scaled_new_input <- apply(transformed_new_input, 2, minmax)
 print(transformed_new_input)
 # Make predictions using the loaded models
 # Assuming AggWaFit718.R provides prediction functions or weights
 # Adapt this part based on the actual output of AggWaFit718.R
-x<-c(0.396366041843691, 0.186332944275711,0, 0.417301013880598)
+x<-c(0.290573580053069,0.194675814651332,0.0432655706497103,0.471485034645866)
 
 predicted_wam <- sum(transformed_new_input*x)
 print(predicted_wam*5 +3)
